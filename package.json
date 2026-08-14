@@ -1,0 +1,9 @@
+{
+  "name": "trend-schedule-assistant",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/parser.test.mjs && node tests/task-state.test.mjs && node tests/task-store.test.mjs && node tests/draft-generator.test.mjs && node tests/dom-contract.test.mjs"
+  }
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>趋势任务助手</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand"><span class="eyebrow">TREND</span><strong>趋势任务助手</strong></div>
+        <button id="refreshAll" class="primary small">识别最新任务</button>
+      </header>
+
+      <div class="flow-guide" aria-label="使用流程">
+        <button class="flow-step" data-step="accounts" data-tab-target="accounts">1 添加账号</button>
+        <span>›</span>
+        <button class="flow-step" data-step="recognize">2 识别任务</button>
+        <span>›</span>
+        <button class="flow-step" data-step="copy" data-tab-target="current">3 复制使用</button>
+      </div>
+
+      <section id="taskCard" class="task-card empty">
+        <div class="card-top">
+          <span id="taskAccount" class="account-badge">暂无任务</span>
+          <span id="taskPhase" class="phase">等待刷新</span>
+        </div>
+        <div id="countdown" class="countdown">--:--:--</div>
+        <div id="countdownLabel" class="countdown-label">距离趋势开始</div>
+        <label for="keyword">Keyword</label>
+        <input id="keyword" class="copy-field" placeholder="未识别" />
+        <label for="hashtags">Hashtag</label>
+        <input id="hashtags" class="copy-field" placeholder="未识别" />
+        <div id="warning" class="warning hidden"></div>
+        <button id="copyOutput" class="primary copy-button">复制 Keyword + Hashtag</button>
+        <div class="card-meta">
+          <span id="timeSummary">尚无时间信息</span>
+          <a id="sourceLink" class="text-link hidden" target="_blank">原帖</a>
+        </div>
+      </section>
+
+      <div class="status-row">
+        <span id="statusDot" class="status-dot idle"></span>
+        <span id="statusText">等待操作</span>
+      </div>
+
+      <nav class="tabs" aria-label="侧边栏功能">
+        <button class="tab active" data-tab="current">当前</button>
+        <button class="tab" data-tab="tasks">任务 <span id="taskCount">0</span></button>
+        <button class="tab" data-tab="drafts">文案</button>
+        <button class="tab" data-tab="accounts">账号 <span id="accountCount">0</span></button>
+      </nav>
+
+      <section id="pane-current" class="pane active">
+        <details class="manual-panel">
+          <summary>手动读取 / 粘贴原文</summary>
+          <div class="mini-actions">
+            <button id="readPost" class="ghost">读取当前帖子</button>
+            <button id="parseTask" class="ghost">解析并保存</button>
+            <button id="clearText" class="text-button">清空</button>
+          </div>
+          <textarea id="sourceText" placeholder="自动读取失败时，可在这里粘贴帖子正文……"></textarea>
+          <p id="readHint" class="hint"></p>
+        </details>
+        <button id="copyDebug" class="text-button debug-button">复制调试信息</button>
+      </section>
+
+      <section id="pane-tasks" class="pane">
+        <div id="taskList" class="list"></div>
+        <p id="taskEmpty" class="empty-note">尚未保存任务</p>
+      </section>
+
+      <section id="pane-drafts" class="pane">
+        <div class="composer-head">
+          <div><strong>辅助文案</strong><p id="draftMode" class="hint">请先识别或选择任务</p></div>
+          <div class="composer-options">
+            <select id="activityType" aria-label="活动类型"><option value="auto">自动类型</option><option value="general">通用活动</option><option value="celebration">生日／纪念</option></select>
+            <select id="draftLanguage" aria-label="文案语言"><option value="zh">中文</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option></select>
+            <select id="draftCount" aria-label="生成数量"><option value="5">5 条</option><option value="10">10 条</option><option value="12">12 条</option></select>
+          </div>
+        </div>
+        <button id="generateDrafts" class="primary full-button">生成本地文案</button>
+        <p class="safety-note">仅供人工编辑和逐条复制；不会自动发布到 X。</p>
+        <div id="draftList" class="draft-list"></div>
+        <p id="draftEmpty" class="empty-note">生成后可编辑、复制并标记已使用</p>
+      </section>
+
+      <section id="pane-accounts" class="pane">
+        <div class="add-row">
+          <input id="newAccount" placeholder="@TrendAccount 或主页链接" />
+          <button id="addAccount" class="primary small">添加</button>
+        </div>
+        <div id="accountList" class="list"></div>
+        <p id="accountEmpty" class="empty-note">添加趋势账号后即可批量刷新</p>
+      </section>
+
+      <footer><span class="version">v0.7.0</span><span id="toast" class="toast" aria-live="polite"></span></footer>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

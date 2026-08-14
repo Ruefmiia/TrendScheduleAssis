@@ -6,3 +6,6 @@ Thumbs.db
 
 # Release archives are generated from extension/
 releases/*.zip
+
+# Local Chinese README (not published)
+README.zh.local.md

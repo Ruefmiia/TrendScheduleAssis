@@ -17,6 +17,15 @@ export function taskPhase(task, now = Date.now()) {
   return { phase: "ended", remaining: 0 };
 }
 
+export function isTaskCurrent(task, now = Date.now()) {
+  const end = taskEnd(task);
+  return end == null || now < end;
+}
+
+export function filterCurrentTasks(tasks = [], now = Date.now()) {
+  return tasks.filter((task) => isTaskCurrent(task, now));
+}
+
 export function formatDuration(ms) {
   const seconds = Math.max(0, Math.floor(ms / 1000));
   const days = Math.floor(seconds / 86400);
@@ -28,14 +37,15 @@ export function formatDuration(ms) {
 }
 
 export function choosePriorityTask(tasks = [], now = Date.now()) {
-  if (tasks.length === 0) return null;
-  const running = tasks
+  const currentTasks = filterCurrentTasks(tasks, now);
+  if (currentTasks.length === 0) return null;
+  const running = currentTasks
     .filter((task) => taskPhase(task, now).phase === "running")
     .sort((a, b) => taskStart(b) - taskStart(a));
   if (running[0]) return running[0];
-  const upcoming = tasks
+  const upcoming = currentTasks
     .filter((task) => taskPhase(task, now).phase === "upcoming")
     .sort((a, b) => taskStart(a) - taskStart(b));
   if (upcoming[0]) return upcoming[0];
-  return [...tasks].sort((a, b) => (taskStart(b) || 0) - (taskStart(a) || 0))[0];
+  return [...currentTasks].sort((a, b) => (taskStart(b) || 0) - (taskStart(a) || 0))[0];
 }

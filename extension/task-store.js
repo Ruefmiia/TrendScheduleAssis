@@ -1,8 +1,13 @@
 const normalizeKeywordKey = (value) => String(value || "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+const normalizeHashtagKey = (value) => {
+  let hashtag = String(value || "").trim().replace(/^＃/, "#");
+  if (hashtag.startsWith("#")) hashtag = `#${hashtag.slice(1).replace(/^[.·•:：\-–—]+/u, "")}`;
+  return hashtag.toLocaleLowerCase();
+};
 
 export function taskDedupKey(task) {
   const date = task?.eventDate || task?.chinaTrendStart?.slice(0, 10) || "undated";
-  const hashtag = String(task?.hashtags?.[0] || "").trim().toLocaleLowerCase();
+  const hashtag = normalizeHashtagKey(task?.hashtags?.[0]);
   if (hashtag) return `hashtag:${date}:${hashtag}`;
   const keyword = normalizeKeywordKey(task?.keyword);
   if (keyword) return `keyword:${date}:${keyword}`;

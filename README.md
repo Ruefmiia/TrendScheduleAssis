@@ -4,7 +4,8 @@ A lightweight Chrome and Edge side-panel extension for reading `TREND SCHEDULE` 
 
 ## Features
 
-- Monitor multiple trend accounts and find their latest schedule posts.
+- Monitor multiple trend accounts and read up to three recent schedule posts per account.
+- Keep upcoming and running tasks, and remove tasks 24 hours after their trend start.
 - Extract Keyword and Hashtag values with validation.
 - Convert GMT, UTC, and Bangkok time to Beijing time.
 - Show a countdown to the trend start and its 24-hour end.

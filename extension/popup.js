@@ -1,5 +1,5 @@
 import { parseTrendTask, validateTrendCopy } from "./parser.js";
-import { taskStart, taskEnd, formatDuration, choosePriorityTask } from "./task-state.js";
+import { taskStart, taskEnd, filterCurrentTasks, formatDuration, choosePriorityTask } from "./task-state.js";
 import { taskDedupKey, mergeTaskRecord, consolidateTaskRecords } from "./task-store.js";
 import { generateDrafts, getDraftMode, detectActivityType } from "./draft-generator.js";
 
@@ -301,7 +301,8 @@ async function refreshAllAccounts() {
   }
   $("refreshAll").disabled = true;
   $("refreshAll").textContent = "识别中…";
-  let success = 0;
+  let successfulAccounts = 0;
+  let expiredTasks = 0;
   const errors = [];
   for (let index = 0; index < enabled.length; index += 1) {
     const account = enabled[index];
@@ -309,28 +310,47 @@ async function refreshAllAccounts() {
     try {
       const response = await chrome.runtime.sendMessage({ type: "FIND_LATEST_TREND", username: account.username });
       if (!response?.ok) throw new Error(response?.error || "读取失败");
-      const parsed = parseTrendTask(response.post.text, response.post.url);
-      await upsertParsedTask(parsed, account.username, { select: false });
-      success += 1;
+      const posts = response.posts?.length ? response.posts : [response.post].filter(Boolean);
+      for (const post of posts.slice(0, 3)) {
+        const parsed = parseTrendTask(post.text, post.url);
+        const end = taskEnd(parsed);
+        if (end != null && Date.now() >= end) {
+          expiredTasks += 1;
+          continue;
+        }
+        await upsertParsedTask(parsed, account.username, { select: false });
+      }
+      successfulAccounts += 1;
     } catch (error) {
       errors.push(`@${account.username}: ${error.message}`);
     }
   }
+  savedTasks = filterCurrentTasks(savedTasks);
+  await persistTasks();
   showTask(choosePriorityTask(savedTasks));
   switchPane("current");
-  setStatus(errors.length ? "error" : "complete", errors.length ? `成功 ${success} 个；${errors.join("；")}` : `已刷新 ${success} 个账号`);
+  const summary = `已读取 ${successfulAccounts} 个账号，保留 ${savedTasks.length} 个有效任务${expiredTasks ? `，忽略 ${expiredTasks} 个已结束任务` : ""}`;
+  setStatus(errors.length ? "error" : "complete", errors.length ? `${summary}；${errors.join("；")}` : summary);
   $("refreshAll").disabled = false;
-  $("refreshAll").textContent = "识别最新任务";
+  $("refreshAll").textContent = "识别近期任务";
 }
 
 async function initialize() {
-  const stored = await chrome.storage.local.get(["trendAccounts", "trendAccount", "savedTasks", "latestTrendPost"]);
+  const stored = await chrome.storage.local.get(["trendAccounts", "trendAccount", "savedTasks", "latestTrendPosts", "latestTrendPost"]);
   accounts = Array.isArray(stored.trendAccounts) ? stored.trendAccounts : [];
   if (accounts.length === 0 && stored.trendAccount) accounts = [{ username: stored.trendAccount, enabled: true }];
-  savedTasks = consolidateTaskRecords(Array.isArray(stored.savedTasks) ? stored.savedTasks : []);
-  if (savedTasks.length === 0 && stored.latestTrendPost?.text) {
-    const parsed = parseTrendTask(stored.latestTrendPost.text, stored.latestTrendPost.url);
-    await upsertParsedTask(parsed, stored.latestTrendPost.username || stored.trendAccount || "manual", { select: false });
+  savedTasks = filterCurrentTasks(consolidateTaskRecords(Array.isArray(stored.savedTasks) ? stored.savedTasks : []));
+  const legacyPosts = Array.isArray(stored.latestTrendPosts) && stored.latestTrendPosts.length
+    ? stored.latestTrendPosts
+    : [stored.latestTrendPost].filter(Boolean);
+  if (savedTasks.length === 0) {
+    for (const post of legacyPosts.slice(0, 3)) {
+      if (!post?.text) continue;
+      const parsed = parseTrendTask(post.text, post.url);
+      const end = taskEnd(parsed);
+      if (end != null && Date.now() >= end) continue;
+      await upsertParsedTask(parsed, post.username || stored.trendAccount || "manual", { select: false });
+    }
   }
   await persistAccounts();
   await persistTasks();
@@ -339,7 +359,7 @@ async function initialize() {
     switchPane("accounts");
     setStatus("idle", "第 1 步：请先添加趋势账号");
   } else if (savedTasks.length === 0) {
-    setStatus("idle", "第 2 步：点击“识别最新任务”开始读取");
+    setStatus("idle", "第 2 步：点击“识别近期任务”开始读取");
   } else {
     setStatus("complete", "任务已就绪，可直接复制使用");
   }
@@ -366,7 +386,7 @@ $("addAccount").addEventListener("click", async () => {
     await persistAccounts();
   }
   $("newAccount").value = "";
-  setStatus("complete", `已添加 @${username}，点击顶部“识别最新任务”`);
+  setStatus("complete", `已添加 @${username}，点击顶部“识别近期任务”`);
 });
 $("newAccount").addEventListener("keydown", (event) => { if (event.key === "Enter") $("addAccount").click(); });
 
@@ -423,12 +443,13 @@ $("copyDebug").addEventListener("click", async () => {
   const { lastReadDebug = {}, autoReadProgress = {} } = await chrome.storage.local.get(["lastReadDebug", "autoReadProgress"]);
   const validation = currentTask ? validateCurrent() : null;
   const report = [
-    "趋势任务助手调试信息", "版本：0.7.2",
+    "趋势任务助手调试信息", "版本：0.8.0",
     `启用账号：${accounts.filter((item) => item.enabled).map((item) => `@${item.username}`).join("、") || "无"}`,
     `阶段：${autoReadProgress.stage || lastReadDebug.stage || "未知"}`,
     `状态：${autoReadProgress.message || lastReadDebug.error || "无"}`,
     `帖子地址：${currentTask?.sourceUrl || lastReadDebug.postUrl || "无"}`,
     `读取方式：${lastReadDebug.readMethod || "无"}`,
+    `近期帖子数：${lastReadDebug.posts?.length || 1}`,
     `正文可能不完整：${lastReadDebug.possiblyIncomplete ? "是" : "否"}`,
     `正文长度：${currentTask?.sourceText?.length || 0}`,
     `Keyword：${validation?.keyword || "未识别"}`,

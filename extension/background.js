@@ -87,6 +87,28 @@ function waitForTab(tabId, timeoutMs = 30000) {
   });
 }
 
+function navigateTabAndWait(tabId, url, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const statusId = url.match(/\/status\/(\d+)/)?.[1];
+    const finish = (error, tab) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(listener);
+      error ? reject(error) : resolve(tab);
+    };
+    const listener = (updatedId, info, tab) => {
+      if (updatedId !== tabId || info.status !== "complete") return;
+      if (statusId && !(tab.url || "").includes(`/status/${statusId}`)) return;
+      finish(null, tab);
+    };
+    const timer = setTimeout(() => finish(new Error("X 帖子详情加载超过 30 秒")), timeoutMs);
+    chrome.tabs.onUpdated.addListener(listener);
+    chrome.tabs.update(tabId, { url }).catch((error) => finish(error));
+  });
+}
+
 async function sendMessageWithRetry(tabId, message, options = {}) {
   const attempts = options.attempts || 8;
   const intervalMs = options.intervalMs || 800;
@@ -116,7 +138,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!username) throw new Error("请输入有效的 X 用户名，例如 @TrendAccount");
 
     const startedAt = new Date().toISOString();
-    const debug = { version: "0.7.2", username, startedAt, stage: "starting" };
+    const debug = { version: "0.8.0", username, startedAt, stage: "starting" };
     await chrome.storage.local.set({ trendAccount: username, lastReadDebug: debug });
     await setProgress("search-loading", "正在加载 X 搜索页…");
 
@@ -128,46 +150,62 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     try {
       const searchTab = await waitForTab(tab.id);
       assertReadableXPage(searchTab);
-      await setProgress("searching", "正在定位最近的趋势帖子…");
+      await setProgress("searching", "正在定位最近的趋势帖子（最多 3 条）…");
       const result = await sendMessageWithRetry(tab.id, {
-        type: "FIND_LATEST_TREND_ON_PAGE",
-        username
+        type: "FIND_RECENT_TRENDS_ON_PAGE",
+        username,
+        limit: 3
       });
-      if (!result?.post) throw new Error(result?.error || "没有找到包含 TREND SCHEDULE 的帖子");
+      const searchPosts = (result?.posts?.length ? result.posts : [result?.post].filter(Boolean)).slice(0, 3);
+      if (!searchPosts.length) throw new Error(result?.error || "没有找到包含 TREND SCHEDULE 的帖子");
 
-      debug.searchPostUrl = result.post.url;
-      debug.searchTextLength = result.post.text?.length || 0;
-      await setProgress("detail-loading", "已定位帖子，正在读取完整正文…", { postUrl: result.post.url });
-
-      const statusId = result.post.url.match(/\/status\/(\d+)/)?.[1];
-      let completePost = result.post;
-      let readMethod = "search-result";
-      if (statusId) {
-        const detailLoaded = waitForTab(tab.id);
-        await chrome.tabs.update(tab.id, { url: result.post.url });
-        const detailTab = await detailLoaded;
-        assertReadableXPage(detailTab);
-        const detail = await sendMessageWithRetry(tab.id, {
-          type: "EXTRACT_POST_BY_STATUS",
-          statusId
-        });
-        if (detail?.post?.text) {
-          completePost = detail.post;
-          readMethod = "status-detail";
+      debug.searchPosts = searchPosts.map((post) => ({ url: post.url, textLength: post.text?.length || 0 }));
+      const completePosts = [];
+      const detailErrors = [];
+      for (let index = 0; index < searchPosts.length; index += 1) {
+        const searchPost = searchPosts[index];
+        await setProgress("detail-loading", `正在读取帖子详情（${index + 1}/${searchPosts.length}）…`, { postUrl: searchPost.url });
+        const statusId = searchPost.url.match(/\/status\/(\d+)/)?.[1];
+        let completePost = searchPost;
+        let readMethod = "search-result";
+        if (statusId) {
+          try {
+            const detailTab = await navigateTabAndWait(tab.id, searchPost.url);
+            assertReadableXPage(detailTab);
+            const detail = await sendMessageWithRetry(tab.id, {
+              type: "EXTRACT_POST_BY_STATUS",
+              statusId
+            });
+            if (detail?.post?.text) {
+              completePost = detail.post;
+              readMethod = "status-detail";
+            }
+          } catch (error) {
+            detailErrors.push(`${searchPost.url}: ${error.message}`);
+          }
         }
+        completePosts.push({ ...completePost, readMethod });
       }
 
       debug.stage = "complete";
-      debug.postUrl = completePost.url;
-      debug.publishedAt = completePost.publishedAt;
-      debug.readMethod = readMethod;
-      debug.textLength = completePost.text?.length || 0;
-      debug.possiblyIncomplete = Boolean(completePost.possiblyIncomplete);
+      debug.posts = completePosts.map((post) => ({
+        url: post.url,
+        publishedAt: post.publishedAt,
+        readMethod: post.readMethod,
+        textLength: post.text?.length || 0,
+        possiblyIncomplete: Boolean(post.possiblyIncomplete)
+      }));
+      debug.detailErrors = detailErrors;
+      debug.postUrl = completePosts[0].url;
+      debug.publishedAt = completePosts[0].publishedAt;
+      debug.readMethod = completePosts[0].readMethod;
+      debug.textLength = completePosts[0].text?.length || 0;
+      debug.possiblyIncomplete = Boolean(completePosts[0].possiblyIncomplete);
       debug.completedAt = new Date().toISOString();
-      const savedPost = { ...completePost, username, foundAt: debug.completedAt };
-      await chrome.storage.local.set({ latestTrendPost: savedPost, lastReadDebug: debug });
-      await setProgress("complete", "读取并解析完成", { postUrl: completePost.url });
-      sendResponse({ ok: true, post: completePost, debug });
+      const savedPosts = completePosts.map((post) => ({ ...post, username, foundAt: debug.completedAt }));
+      await chrome.storage.local.set({ latestTrendPosts: savedPosts, latestTrendPost: savedPosts[0], lastReadDebug: debug });
+      await setProgress("complete", `已读取 ${completePosts.length} 条近期帖子`, { postUrl: completePosts[0].url });
+      sendResponse({ ok: true, posts: completePosts, post: completePosts[0], debug });
     } catch (error) {
       debug.stage = "error";
       debug.error = error.message || "自动查找失败";

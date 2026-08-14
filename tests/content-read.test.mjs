@@ -12,6 +12,7 @@ const context = vm.createContext({
 vm.runInContext(source, context);
 const isIncomplete = vm.runInContext("isLikelyIncompleteTweetText", context);
 const waitForStablePost = vm.runInContext("waitForStablePost", context);
+const sortRecentTrendPosts = vm.runInContext("sortRecentTrendPosts", context);
 
 assert.equal(isIncomplete("SANTA LIP NUDE LIVE\n#️⃣"), true);
 assert.equal(isIncomplete("SANTA LIP NUDE LIVE\n#️⃣ LOrealLaqueNudexSanta"), false);
@@ -34,5 +35,13 @@ const timedOut = await waitForStablePost(
 );
 assert.equal(timedOut.text, partial);
 assert.equal(timedOut.possiblyIncomplete, true);
+
+const recent = sortRecentTrendPosts([
+  { url: "old", publishedAt: "2026-08-13T10:00:00Z" },
+  { url: "newest", publishedAt: "2026-08-15T10:00:00Z" },
+  { url: "middle", publishedAt: "2026-08-14T10:00:00Z" },
+  { url: "older", publishedAt: "2026-08-12T10:00:00Z" }
+], 3);
+assert.deepEqual(Array.from(recent, (item) => item.url), ["newest", "middle", "old"]);
 
 console.log("X post stability tests passed.");

@@ -108,4 +108,27 @@ const hashtagOnlyCopy = validateTrendCopy({ keyword: "", hashtags: ["#HashtagOnl
 assert.equal(hashtagOnlyCopy.valid, true);
 assert.deepEqual(hashtagOnlyCopy.errors, []);
 
+const trendForPerthSample = `📢 TREND SCHEDULE TOMORROW || #PerthTrendSchedule
+#PerthSanta #เพิร์ธแซนต้า
+
+< VIDA Love Lesson With PerthSanta >
+
+🗓 Saturday, 15.08.2026
+🕕 6.00 PM (BKK Time)
+📍 Private Event
+
+🔑 PERTHSANTA LOVE CLASS
+#️⃣ #.VIDALoveLessonxPerthSanta
+⏰ Start trend: 5.30 PM (BKK Time)
+📎 https://x.com/intent/tweet?text=%0A%0APERTHSANTA%20LOVE%20CLASS%0A%0A%23VIDALoveLessonxPerthSanta
+
+‼️ Please do not use tags before the time ‼️`;
+const trendForPerthTask = parseTrendTask(trendForPerthSample);
+assert.equal(trendForPerthTask.eventDate, "2026-08-15");
+assert.equal(trendForPerthTask.keyword, "PERTHSANTA LOVE CLASS");
+assert.deepEqual(trendForPerthTask.hashtags, ["#VIDALoveLessonxPerthSanta"]);
+assert.equal(trendForPerthTask.chinaTrendStart, "2026-08-15T18:30:00+08:00");
+assert.equal(validateTrendCopy(trendForPerthTask).valid, true);
+assert.deepEqual(normalizeHashtags(["#.VIDALoveLessonxPerthSanta"]), ["#VIDALoveLessonxPerthSanta"]);
+
 console.log("Keyword and Hashtag validation tests passed.");

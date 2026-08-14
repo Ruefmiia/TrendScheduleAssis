@@ -24,6 +24,9 @@ function parseDate(text) {
   const numeric = text.match(/\b(20\d{2})[\/-](\d{1,2})[\/-](\d{1,2})\b/);
   if (numeric) return { year: +numeric[1], month: +numeric[2], day: +numeric[3] };
 
+  const dottedDayFirst = text.match(/\b(\d{1,2})\.(\d{1,2})\.(20\d{2})\b/);
+  if (dottedDayFirst) return { year: +dottedDayFirst[3], month: +dottedDayFirst[2], day: +dottedDayFirst[1] };
+
   const chinese = text.match(/\b(20\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
   if (chinese) return { year: +chinese[1], month: +chinese[2], day: +chinese[3] };
   return null;
@@ -117,8 +120,12 @@ export function parseTrendTask(input, sourceUrl = "") {
   const hashtagHintLines = lines
     .filter((line) => /^#️⃣/u.test(line))
     .map((line) => cleanLine(line))
-    .filter(Boolean)
-    .map((value) => value.startsWith("#") ? value : `#${value.replace(/\s+/g, "")}`);
+    .map((value) => value
+      .replace(/^[#＃\s]+/u, "")
+      .replace(/^[.·•:：\-–—]+/u, "")
+      .replace(/\s+/g, ""))
+    .filter((value) => /^[\p{L}\p{N}_]+$/u.test(value))
+    .map((value) => `#${value}`);
   const explicitHashtagsAfterTrend = trendLine
     ? (text.slice(text.indexOf(trendLine) + trendLine.length).match(/#[\p{L}\p{N}_]+/gu) || [])
     : [];
@@ -191,7 +198,9 @@ export function normalizeKeyword(value) {
 export function normalizeHashtags(value) {
   const candidates = Array.isArray(value) ? value : String(value || "").split(/[\s,，]+/);
   return [...new Set(candidates.map((item) => {
-    const cleaned = String(item || "").trim().replace(/^＃/, "#");
+    let cleaned = String(item || "").trim().replace(/^＃/, "#");
+    if (cleaned.startsWith("#")) cleaned = `#${cleaned.slice(1).replace(/^[.·•:：\-–—]+/u, "")}`;
+    else cleaned = cleaned.replace(/^[.·•:：\-–—]+/u, "");
     return cleaned && !cleaned.startsWith("#") ? `#${cleaned}` : cleaned;
   }).filter(Boolean))];
 }

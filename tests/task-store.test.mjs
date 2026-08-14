@@ -27,6 +27,8 @@ const sameHashtagWithoutKeyword = { ...first, keyword: "" };
 assert.equal(taskDedupKey(first), taskDedupKey(sameHashtagWithoutKeyword));
 const keywordFallback = { ...first, hashtags: [] };
 assert.match(taskDedupKey(keywordFallback), /^keyword:/);
+const malformedLegacyHashtag = { ...first, hashtags: ["#.LOrealLaqueNudexSanta"] };
+assert.equal(taskDedupKey(first), taskDedupKey(malformedLegacyHashtag));
 const merged = mergeTaskRecord(first, duplicate);
 assert.equal(merged.id, "first-id");
 assert.deepEqual(merged.usernames, ["TrendforSanta", "TrendPerthSanta"]);

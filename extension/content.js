@@ -6,9 +6,11 @@ function articleToPost(article) {
         /\/status\/\d+/.test(link.getAttribute("href") || "")
       )
     : null;
+  const rawUrl = statusLink ? new URL(statusLink.href, location.origin).href : location.href;
+  const statusMatch = rawUrl.match(/^(https:\/\/(?:x|twitter)\.com\/[^/]+\/status\/\d+)/i);
   return {
     text: extractTweetText(textNode),
-    url: statusLink ? new URL(statusLink.href, location.origin).href : location.href,
+    url: statusMatch?.[1] || rawUrl,
     publishedAt: timeNode?.getAttribute("datetime") || null
   };
 }
@@ -91,26 +93,32 @@ async function extractPostByStatus(statusId) {
   });
 }
 
-async function findLatestTrendOnPage() {
+function sortRecentTrendPosts(posts, limit = 3) {
+  return [...posts].sort((a, b) => {
+    const aTime = Date.parse(a.publishedAt || "") || 0;
+    const bTime = Date.parse(b.publishedAt || "") || 0;
+    return bTime - aTime;
+  }).slice(0, limit);
+}
+
+async function findRecentTrendPostsOnPage(limit = 3) {
   const found = new Map();
+  let unchangedRounds = 0;
   for (let round = 0; round < 24; round += 1) {
+    const sizeBefore = found.size;
     for (const article of document.querySelectorAll("article")) {
       const post = articleToPost(article);
       if (/TREND\s+SCHEDULE/i.test(post.text) && /\/status\/\d+/.test(post.url)) {
         found.set(post.url, post);
       }
     }
-    if (found.size > 0 && round >= 2) break;
+    unchangedRounds = found.size === sizeBefore ? unchangedRounds + 1 : 0;
+    if (found.size >= limit && round >= 2) break;
+    if (found.size > 0 && unchangedRounds >= 3 && round >= 3) break;
     window.scrollBy({ top: Math.max(window.innerHeight * 0.85, 600), behavior: "smooth" });
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-
-  const posts = [...found.values()].sort((a, b) => {
-    const aTime = Date.parse(a.publishedAt || "") || 0;
-    const bTime = Date.parse(b.publishedAt || "") || 0;
-    return bTime - aTime;
-  });
-  return posts[0] || null;
+  return sortRecentTrendPosts(found.values(), limit);
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -121,10 +129,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "FIND_LATEST_TREND_ON_PAGE") {
-    findLatestTrendOnPage()
-      .then((post) => sendResponse({ post, error: post ? null : "搜索结果中没有找到趋势任务" }))
-      .catch((error) => sendResponse({ post: null, error: error.message }));
+  if (message?.type === "FIND_RECENT_TRENDS_ON_PAGE" || message?.type === "FIND_LATEST_TREND_ON_PAGE") {
+    findRecentTrendPostsOnPage(message.limit || 3)
+      .then((posts) => sendResponse({ posts, post: posts[0] || null, error: posts.length ? null : "搜索结果中没有找到趋势任务" }))
+      .catch((error) => sendResponse({ posts: [], post: null, error: error.message }));
     return true;
   }
 

@@ -104,4 +104,8 @@ const suspiciousCopy = validateTrendCopy({ keyword: "SANTA TEST", hashtags: ["#S
 assert.equal(suspiciousCopy.valid, true);
 assert.ok(suspiciousCopy.warnings.some((item) => item.includes("#Santapp")));
 
+const hashtagOnlyCopy = validateTrendCopy({ keyword: "", hashtags: ["#HashtagOnlyEvent"], sourceText: "#HashtagOnlyEvent" });
+assert.equal(hashtagOnlyCopy.valid, true);
+assert.deepEqual(hashtagOnlyCopy.errors, []);
+
 console.log("Keyword and Hashtag validation tests passed.");

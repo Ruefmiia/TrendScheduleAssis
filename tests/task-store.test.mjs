@@ -21,6 +21,12 @@ const anotherDate = { ...duplicate, id: "third-id", eventDate: "2026-08-15" };
 
 assert.equal(taskDedupKey(first), taskDedupKey(duplicate));
 assert.notEqual(taskDedupKey(first), taskDedupKey(anotherDate));
+const sameKeywordDifferentHashtag = { ...first, hashtags: ["#AnotherActivity"] };
+assert.notEqual(taskDedupKey(first), taskDedupKey(sameKeywordDifferentHashtag));
+const sameHashtagWithoutKeyword = { ...first, keyword: "" };
+assert.equal(taskDedupKey(first), taskDedupKey(sameHashtagWithoutKeyword));
+const keywordFallback = { ...first, hashtags: [] };
+assert.match(taskDedupKey(keywordFallback), /^keyword:/);
 const merged = mergeTaskRecord(first, duplicate);
 assert.equal(merged.id, "first-id");
 assert.deepEqual(merged.usernames, ["TrendforSanta", "TrendPerthSanta"]);

@@ -138,7 +138,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!username) throw new Error("请输入有效的 X 用户名，例如 @TrendAccount");
 
     const startedAt = new Date().toISOString();
-    const debug = { version: "0.8.0", username, startedAt, stage: "starting" };
+    const debug = { version: "0.8.1", username, startedAt, stage: "starting" };
     await chrome.storage.local.set({ trendAccount: username, lastReadDebug: debug });
     await setProgress("search-loading", "正在加载 X 搜索页…");
 

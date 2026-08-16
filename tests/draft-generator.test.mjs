@@ -4,6 +4,8 @@ import { DRAFT_LIBRARY, detectActivityType, generateDrafts, getDraftMode } from 
 assert.equal(DRAFT_LIBRARY.length, 500);
 assert.equal(DRAFT_LIBRARY.filter((item) => item.type === "general").length, 400);
 assert.equal(DRAFT_LIBRARY.filter((item) => item.type === "celebration").length, 100);
+assert.equal(DRAFT_LIBRARY.filter((item) => item.id.startsWith("praise-")).length, 140);
+assert.ok(DRAFT_LIBRARY.filter((item) => item.id.startsWith("praise-")).every((item) => [...item.text.zh].length <= 30));
 assert.ok(DRAFT_LIBRARY.every((item) => ["zh", "en", "ja", "ko"].every((language) => item.text[language])));
 assert.equal(new Set(DRAFT_LIBRARY.map((item) => item.id)).size, 500);
 for (const language of ["zh", "en", "ja", "ko"]) {

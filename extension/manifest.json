@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "趋势任务助手",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "识别 X 趋势任务中的日期、时间、关键词和话题标签，并换算为北京时间。",
   "permissions": ["activeTab", "storage", "tabs", "sidePanel", "alarms", "notifications"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],

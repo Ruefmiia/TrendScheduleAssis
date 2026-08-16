@@ -443,7 +443,7 @@ $("copyDebug").addEventListener("click", async () => {
   const { lastReadDebug = {}, autoReadProgress = {} } = await chrome.storage.local.get(["lastReadDebug", "autoReadProgress"]);
   const validation = currentTask ? validateCurrent() : null;
   const report = [
-    "趋势任务助手调试信息", "版本：0.8.0",
+    "趋势任务助手调试信息", "版本：0.8.1",
     `启用账号：${accounts.filter((item) => item.enabled).map((item) => `@${item.username}`).join("、") || "无"}`,
     `阶段：${autoReadProgress.stage || lastReadDebug.stage || "未知"}`,
     `状态：${autoReadProgress.message || lastReadDebug.error || "无"}`,
